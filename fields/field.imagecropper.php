@@ -9,7 +9,7 @@
 		const RATIO = 3;
 		const ERROR = 4;
 
-		private $supported_upload_fields = array('upload', 'uniqueupload', 'signedfileupload', 'image_upload');
+		private $supported_upload_fields = array('upload', 'uniqueupload', 'signedfileupload', 'image_upload', 'reflectedupload');
 
 		function __construct() {
 			parent::__construct();
@@ -460,6 +460,12 @@
 
 			$imagecropper->appendChild($fieldset);
 
+			// SYMPHONY 2.3.3 ISSUE - Since file path are no longer saved with file name.
+			$related_field_type = Symphony::Database()->fetch("SELECT type FROM `tbl_fields` WHERE id = " . $related_field_id);
+			$related_field_type = $related_field_type[0]['type'];
+			$related_destination = Symphony::Database()->fetch("SELECT destination FROM `tbl_fields_" . $related_field_type . "` WHERE field_id = " . $related_field_id);
+			$related_destination = str_replace("/workspace", "", $related_destination[0]['destination']);
+
 			// data for imagecropper JS options
 			// (can't use a single JSON object because attribute values are always with double qoutes)
 			$imagecropper->setAttributeArray(array(
@@ -468,7 +474,7 @@
 				'data-related_field_id' => $this->get('related_field_id'),
 				'data-ratio' => $imagecropper_ratio,
 				'data-min_size' => '['.$this->get('min_width').','.$this->get('min_height').']',
-				'data-image_file' => $imageData['file'],
+				'data-image_file' => $related_destination.'/'.$imageData['file'],
 				'data-image_width' => $imageMeta['width'],
 				'data-image_height' => $imageMeta['height'],
 			));
@@ -485,9 +491,16 @@
 		function prepareTableValue($data, XMLElement $link=NULL, $entry_id = NULL){
 			if (isset($entry_id) && $data['cropped'] == 'yes') {
 				$entries = EntryManager::fetch($entry_id);
-				
+			
+				// SYMPHONY 2.3.3 ISSUE - Since file path are no longer saved with file name.
+				$related_field_id = $this->get('related_field_id');
+				$related_field_type = Symphony::Database()->fetch("SELECT type FROM `tbl_fields` WHERE id = " . $related_field_id);
+				$related_field_type = $related_field_type[0]['type'];
+				$related_destination = Symphony::Database()->fetch("SELECT destination FROM `tbl_fields_" . $related_field_type . "` WHERE field_id = " . $related_field_id);
+				$related_destination = str_replace("/workspace", "", $related_destination[0]['destination']);
+
 				$entryData = $entries[0]->getData();
-				$image = '<img style="vertical-align: middle;" src="' . URL . '/image/5/'.$data['width'].'/'.$data['height'].'/'.$data['x1'].'/'.$data['y1'].'/0/40'. $entryData[$this->get('related_field_id')]['file'] .'" alt="'.$this->get('label').' of Entry '.$entry_id.'"/>';
+				$image = '<img style="vertical-align: middle;" src="' . URL . '/image/5/'.$data['width'].'/'.$data['height'].'/'.$data['x1'].'/'.$data['y1'].'/0/40'. $related_destination . '/' . $entryData[$this->get('related_field_id')]['file'] .'" alt="'.$this->get('label').' of Entry '.$entry_id.'"/>';
 			} else {
 				return parent::prepareTableValue(NULL);
 			}
